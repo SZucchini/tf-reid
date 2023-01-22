@@ -52,6 +52,8 @@ def visualize_rank(files, img_features, output_dir):
             img_path = files[idx]
             img = np.asarray(Image.open(img_path))
             cos_sim = round(probs[idx.item()].item(), 3)
+            if cos_sim == 1:
+                cos_sim = "Query image"
 
             ax[loc//col, loc-((loc//col)*col)].imshow(img)
             ax[loc//col, loc-((loc//col)*col)].tick_params(labelleft=False, labelbottom=False)
@@ -59,7 +61,7 @@ def visualize_rank(files, img_features, output_dir):
             ax[loc//col, loc-((loc//col)*col)].set_xlabel(cos_sim, fontsize=22)
             loc += 1
 
-        for i in range(loc, len(files)):
+        for i in range(loc, row*col):
             ax[i//col, i-((i//col)*col)].axis("off")
 
         fig.tight_layout()
@@ -70,7 +72,7 @@ def main():
     # argments settings
     parser = argparse.ArgumentParser()
     parser.add_argument("--input_dir", type=str, required=True, help="input images dir path")
-    parser.add_argument("--output_dir", type=str, required=True, help="input images dir path")
+    parser.add_argument("--output_dir", type=str, required=True, help="output dir path")
     args = parser.parse_args()
 
     # check output dir exist
