@@ -1,5 +1,8 @@
 # my def
 sh/
+data/
+.DS_Store
+@eaDir/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
