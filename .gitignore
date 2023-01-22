@@ -1,3 +1,6 @@
+# my def
+sh/
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
@@ -6,7 +9,7 @@ __pycache__/
 # C extensions
 *.so
 
-# Distribution / packaging
+# Distribution / packaginggit pull origin ブランチ名
 .Python
 build/
 develop-eggs/
