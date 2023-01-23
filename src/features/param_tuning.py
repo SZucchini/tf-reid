@@ -36,7 +36,7 @@ def get_all_palette(files, c_num, p_num, sort=False, black='del'):
     return np.array(c_features)
 
 def plot_palette(files, c_num, p_num, c_features, output_dir):
-    fig, ax = plt.subplots(len(files), p_num*c_num+1, figsize=(370, 7*c_num*p_num+10))
+    fig, ax = plt.subplots(len(files), p_num*c_num+1, figsize=(400, 5*c_num*p_num+10))
     fig_name = output_dir + f'/c{c_num}_p{p_num}.png'
     print('save fig name:', fig_name)
 
@@ -55,6 +55,59 @@ def plot_palette(files, c_num, p_num, c_features, output_dir):
     plt.savefig(fig_name)
     plt.close()
 
+def ciede_sim(c_feature1, c_feature2):
+    c1 = color.rgb2lab(np.array(c_feature1)/255)
+    c2 = color.rgb2lab(np.array(c_feature2)/255)
+    diff = color.deltaE_ciede2000(c1, c2)
+    return diff.sum()
+
+def rgb_sim(c_feature1, c_feature2):
+    c1 = np.array(c_feature1)
+    c2 = np.array(c_feature2)
+    diff = np.linalg.norm(c2-c1, axis=1)
+    return diff.sum()
+
+def culc_sim(c_features, distance="rgb"):
+    print('color distance method:', distance)
+    num_img = c_features.shape[0]
+    sim = np.zeros((num_img, num_img))
+    for i in range(num_img):
+        for j in range(i, num_img):
+            if distance == "rgb":
+                sim[i, j] = rgb_sim(c_features[i], c_features[j])
+            else:
+                sim[i, j] = ciede_sim(c_features[i], c_features[j])
+            if i != j:
+                sim[j, i] = sim[i, j]
+
+    sim = sim / sim.max()
+    sim = 1 - sim
+    return sim
+
+def culc_ave_sim(sim, imgs_per_person):
+    print('similarity matrix')
+    print(sim)
+    persons = sim.shape[0] // imgs_per_person
+    ave_sim = np.zeros((persons, persons))
+    sim_nan = np.where(sim == 1, np.nan, sim)
+    print('similarity matrix 1 to nan')
+    print(sim_nan)
+
+    for i in range(persons):
+        for j in range(persons):
+            ave_sim[i, j] = np.nanmean(sim_nan[i*10:(i+1)*10-1, j*10:(j+1)*10-1])
+    print('average similarity matrix')
+    print(ave_sim)
+
+    return ave_sim
+
+def save_sim_matrix(sim, c_num, p_num, output_dir):
+    fig_name = output_dir + f'/c{c_num}_p{p_num}.png'
+    plt.figure()
+    sns.heatmap(sim, square=True, cbar=True, annot=True, cmap='Blues', xticklabels=1, yticklabels=1)
+    plt.savefig(fig_name)
+    plt.close()
+
 def main():
     # argments settings
     parser = argparse.ArgumentParser()
@@ -63,16 +116,18 @@ def main():
     parser.add_argument("--palette_param_range", type=str, default="1:10", help="evaluate multi palette num")
     parser.add_argument("--palette_sort", type=bool, default=False, help="sort palette or not")
     parser.add_argument("--black", type=str, default="del", help="delete or turn to white black pixels")
+    parser.add_argument("--distance", type=str, default="rgb", help="color distance culc method (rgb or lab)")
+    parser.add_argument("--imgs_per_person", type=int, default=10, help="number of images per same person")
     parser.add_argument("--output_dir", type=str, required=True, help="output dir path")
     args = parser.parse_args()
     print_args(args)
 
     if args.palette_sort:
         palette_dir = args.output_dir + '/palette_sorted'
-        matrix_dir = args.output_dir + '/matrix_sorted'
+        matrix_dir = args.output_dir + f'/matrix_{args.distance}_sorted'
     else:
         palette_dir = args.output_dir + '/palette'
-        matrix_dir = args.output_dir + '/matrix'
+        matrix_dir = args.output_dir + f'/matrix_{args.distance}'
     print('palette directory:', palette_dir)
     print('matrix directory:', matrix_dir)
     # check output dir exist
@@ -95,9 +150,10 @@ def main():
             print(f'Number of (colors, palettes) = ({c_num}, {p_num})')
             c_features = get_all_palette(files, c_num, p_num, args.palette_sort, args.black)
             print('c_features shape:', c_features.shape)
-            plot_palette(files, c_num, p_num, c_features, palette_dir)
-            print()
-    # 各人物別に平均した類似度を出す
+            # plot_palette(files, c_num, p_num, c_features, palette_dir)
+            sim = culc_sim(c_features, args.distance)
+            ave_sim = culc_ave_sim(sim, args.imgs_per_person)
+            save_sim_matrix(ave_sim, c_num, p_num, matrix_dir)
 
 
 if __name__ == '__main__':
