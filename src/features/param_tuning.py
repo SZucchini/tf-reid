@@ -1,0 +1,104 @@
+import os
+import glob
+import argparse
+import itertools
+
+import cv2
+import torch
+import numpy as np
+from PIL import Image
+from skimage import color, io
+import seaborn as sns
+import matplotlib.pyplot as plt
+
+from colorthief import ColorThief
+
+def print_args(args):
+    for k, v in vars(args).items():
+        print(k, v)
+    print()
+
+def get_param_lst(param_range):
+    start, end = int(param_range.split(':')[0]), int(param_range.split(':')[1])
+    lst = list(range(start, end+1))
+    return lst
+
+def get_all_palette(files, c_num, p_num, sort=False, black='del'):
+    c_features = []
+    for f in files:
+        color_thief = ColorThief(f)
+        palette = color_thief.get_multi_palette(color_count=c_num,
+                                                quality=10,
+                                                palette_num=p_num,
+                                                sort=sort,
+                                                black=black)
+        c_features.append(palette)
+    return np.array(c_features)
+
+def plot_palette(files, c_num, p_num, c_features, output_dir):
+    fig, ax = plt.subplots(len(files), p_num*c_num+1, figsize=(370, 7*c_num*p_num+10))
+    fig_name = output_dir + f'/c{c_num}_p{p_num}.png'
+    print('save fig name:', fig_name)
+
+    for p, (f, feature) in enumerate(zip(files, c_features)):
+        img = Image.open(f)
+        ax[p, 0].imshow(img)
+        ax[p, 0].axis('off')
+
+        for i in range(p_num):
+            for j in range(c_num):
+                im = Image.new('RGB', (5, 5), tuple(feature[i, j, :]))
+                ax[p, i*c_num+j+1].imshow(im)
+                ax[p, i*c_num+j+1].axis('off')
+
+    fig.tight_layout()
+    plt.savefig(fig_name)
+    plt.close()
+
+def main():
+    # argments settings
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--input_dir", type=str, required=True, help="input images dir path")
+    parser.add_argument("--color_param_range", type=str, default="1:10", help="evaluate color num per palette")
+    parser.add_argument("--palette_param_range", type=str, default="1:10", help="evaluate multi palette num")
+    parser.add_argument("--palette_sort", type=bool, default=False, help="sort palette or not")
+    parser.add_argument("--black", type=str, default="del", help="delete or turn to white black pixels")
+    parser.add_argument("--output_dir", type=str, required=True, help="output dir path")
+    args = parser.parse_args()
+    print_args(args)
+
+    if args.palette_sort:
+        palette_dir = args.output_dir + '/palette_sorted'
+        matrix_dir = args.output_dir + '/matrix_sorted'
+    else:
+        palette_dir = args.output_dir + '/palette'
+        matrix_dir = args.output_dir + '/matrix'
+    print('palette directory:', palette_dir)
+    print('matrix directory:', matrix_dir)
+    # check output dir exist
+    if not os.path.exists(palette_dir):
+        os.makedirs(palette_dir)
+    if not os.path.exists(matrix_dir):
+        os.makedirs(matrix_dir)
+
+    input = args.input_dir + '/*.jpg'
+    print('input images:', input)
+    files = glob.glob(input)
+    files.sort()
+    color_params = get_param_lst(args.color_param_range)
+    palette_params = get_param_lst(args.palette_param_range)
+    print('color parameters:', color_params)
+    print('palette parameters:', palette_params)
+
+    for c_num in color_params:
+        for p_num in palette_params:
+            print(f'Number of (colors, palettes) = ({c_num}, {p_num})')
+            c_features = get_all_palette(files, c_num, p_num, args.palette_sort, args.black)
+            print('c_features shape:', c_features.shape)
+            plot_palette(files, c_num, p_num, c_features, palette_dir)
+            print()
+    # 各人物別に平均した類似度を出す
+
+
+if __name__ == '__main__':
+    main()
