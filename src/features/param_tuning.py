@@ -98,11 +98,19 @@ def culc_ave_sim(sim, imgs_per_person):
             ave_sim[i, j] = np.nanmean(sim_nan[i*10:(i+1)*10-1, j*10:(j+1)*10-1])
     print('average similarity matrix')
     print(ave_sim)
-
     return ave_sim
 
+def culc_sim_acc(sim):
+    ans = np.array([0, 1, 2, 3, 4, 5, 6])
+    max_idx = np.argmax(sim, axis=1)
+    acc = np.count_nonzero(ans == max_idx) / max_idx.shape[0]
+    print('Accuracy:', acc)
+    return acc
+
 def save_sim_matrix(sim, c_num, p_num, output_dir):
-    fig_name = output_dir + f'/c{c_num}_p{p_num}.png'
+    acc = culc_sim_acc(sim)
+    fig_name = output_dir + f'/c{c_num}_p{p_num}_acc{acc:.2f}.png'
+    print('save figure name:', fig_name)
     plt.figure()
     sns.heatmap(sim, square=True, cbar=True, annot=True, cmap='Blues', xticklabels=1, yticklabels=1)
     plt.savefig(fig_name)
@@ -147,6 +155,7 @@ def main():
 
     for c_num in color_params:
         for p_num in palette_params:
+            print()
             print(f'Number of (colors, palettes) = ({c_num}, {p_num})')
             c_features = get_all_palette(files, c_num, p_num, args.palette_sort, args.black)
             print('c_features shape:', c_features.shape)
