@@ -28,7 +28,7 @@ def get_all_palette(files, c_num, p_num, sort=False, black='del'):
     for f in files:
         color_thief = ColorThief(f)
         palette = color_thief.get_multi_palette(color_count=c_num,
-                                                quality=10,
+                                                quality=1,
                                                 palette_num=p_num,
                                                 sort=sort,
                                                 black=black)
@@ -114,7 +114,7 @@ def main():
     parser.add_argument("--input_dir", type=str, required=True, help="input images dir path")
     parser.add_argument("--color_param_range", type=str, default="1:10", help="evaluate color num per palette")
     parser.add_argument("--palette_param_range", type=str, default="1:10", help="evaluate multi palette num")
-    parser.add_argument("--palette_sort", type=bool, default=False, help="sort palette or not")
+    parser.add_argument("--palette_sort", type=int, default=0, help="sort palette or not")
     parser.add_argument("--black", type=str, default="del", help="delete or turn to white black pixels")
     parser.add_argument("--distance", type=str, default="rgb", help="color distance culc method (rgb or lab)")
     parser.add_argument("--imgs_per_person", type=int, default=10, help="number of images per same person")
