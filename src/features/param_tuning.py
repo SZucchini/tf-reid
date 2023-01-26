@@ -112,7 +112,7 @@ def save_sim_matrix(sim, c_num, p_num, output_dir):
     fig_name = output_dir + f'/c{c_num}_p{p_num}_acc{acc:.2f}.png'
     print('save figure name:', fig_name)
     plt.figure()
-    sns.heatmap(sim, square=True, cbar=True, annot=True, cmap='Blues', xticklabels=1, yticklabels=1)
+    sns.heatmap(sim, square=True, cbar=True, annot=True, cmap='Blues', xticklabels=1, yticklabels=1, vmin=0, vmax=1)
     plt.savefig(fig_name)
     plt.close()
 
