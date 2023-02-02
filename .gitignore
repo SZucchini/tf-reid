@@ -4,6 +4,11 @@ data/
 reports/
 .DS_Store
 @eaDir/
+yolo/datasets/
+yolo/*.yaml
+yolo/input/
+yolo/runs/
+yolo/weights/*.pt
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

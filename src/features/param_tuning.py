@@ -1,27 +1,27 @@
 import os
 import glob
 import argparse
-import itertools
 
-import cv2
-import torch
 import numpy as np
 from PIL import Image
-from skimage import color, io
+from skimage import color
 import seaborn as sns
 import matplotlib.pyplot as plt
 
 from colorthief import ColorThief
+
 
 def print_args(args):
     for k, v in vars(args).items():
         print(k, v)
     print()
 
+
 def get_param_lst(param_range):
     start, end = int(param_range.split(':')[0]), int(param_range.split(':')[1])
     lst = list(range(start, end+1))
     return lst
+
 
 def get_all_palette(files, c_num, p_num, sort=False, black='del'):
     c_features = []
@@ -34,6 +34,7 @@ def get_all_palette(files, c_num, p_num, sort=False, black='del'):
                                                 black=black)
         c_features.append(palette)
     return np.array(c_features)
+
 
 def plot_palette(files, c_num, p_num, c_features, output_dir):
     fig, ax = plt.subplots(len(files), p_num*c_num+1, figsize=(400, 5*c_num*p_num+10))
@@ -55,17 +56,20 @@ def plot_palette(files, c_num, p_num, c_features, output_dir):
     plt.savefig(fig_name)
     plt.close()
 
+
 def ciede_sim(c_feature1, c_feature2):
     c1 = color.rgb2lab(np.array(c_feature1)/255)
     c2 = color.rgb2lab(np.array(c_feature2)/255)
     diff = color.deltaE_ciede2000(c1, c2)
     return diff.sum()
 
+
 def rgb_sim(c_feature1, c_feature2):
     c1 = np.array(c_feature1)
     c2 = np.array(c_feature2)
     diff = np.linalg.norm(c2-c1, axis=1)
     return diff.sum()
+
 
 def culc_sim(c_features, distance="rgb"):
     print('color distance method:', distance)
@@ -84,6 +88,7 @@ def culc_sim(c_features, distance="rgb"):
     sim = 1 - sim
     return sim
 
+
 def culc_ave_sim(sim, imgs_per_person):
     print('similarity matrix')
     print(sim)
@@ -100,6 +105,7 @@ def culc_ave_sim(sim, imgs_per_person):
     print(ave_sim)
     return ave_sim
 
+
 def culc_sim_acc(sim):
     ans = np.array([0, 1, 2, 3, 4, 5, 6])
     max_idx = np.argmax(sim, axis=1)
@@ -107,26 +113,37 @@ def culc_sim_acc(sim):
     print('Accuracy:', acc)
     return acc
 
+
 def save_sim_matrix(sim, c_num, p_num, output_dir):
     acc = culc_sim_acc(sim)
     fig_name = output_dir + f'/c{c_num}_p{p_num}_acc{acc:.2f}.png'
     print('save figure name:', fig_name)
     plt.figure()
-    sns.heatmap(sim, square=True, cbar=True, annot=True, cmap='Blues', xticklabels=1, yticklabels=1, vmin=0, vmax=1)
+    sns.heatmap(sim, square=True, cbar=True, annot=True, cmap='Blues',
+                xticklabels=1, yticklabels=1, vmin=0, vmax=1)
     plt.savefig(fig_name)
     plt.close()
+
 
 def main():
     # argments settings
     parser = argparse.ArgumentParser()
-    parser.add_argument("--input_dir", type=str, required=True, help="input images dir path")
-    parser.add_argument("--color_param_range", type=str, default="1:10", help="evaluate color num per palette")
-    parser.add_argument("--palette_param_range", type=str, default="1:10", help="evaluate multi palette num")
-    parser.add_argument("--palette_sort", type=int, default=0, help="sort palette or not")
-    parser.add_argument("--black", type=str, default="del", help="delete or turn to white black pixels")
-    parser.add_argument("--distance", type=str, default="rgb", help="color distance culc method (rgb or lab)")
-    parser.add_argument("--imgs_per_person", type=int, default=10, help="number of images per same person")
-    parser.add_argument("--output_dir", type=str, required=True, help="output dir path")
+    parser.add_argument("--input_dir", type=str, required=True,
+                        help="input images dir path")
+    parser.add_argument("--color_param_range", type=str, default="1:10",
+                        help="evaluate color num per palette")
+    parser.add_argument("--palette_param_range", type=str, default="1:10",
+                        help="evaluate multi palette num")
+    parser.add_argument("--palette_sort", type=int, default=0,
+                        help="sort palette or not")
+    parser.add_argument("--black", type=str, default="del",
+                        help="delete or turn to white black pixels")
+    parser.add_argument("--distance", type=str, default="rgb",
+                        help="color distance culc method (rgb or lab)")
+    parser.add_argument("--imgs_per_person", type=int, default=10,
+                        help="number of images per same person")
+    parser.add_argument("--output_dir", type=str, required=True,
+                        help="output dir path")
     args = parser.parse_args()
     print_args(args)
 

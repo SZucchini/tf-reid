@@ -7,9 +7,10 @@ import numpy as np
 from tqdm import tqdm
 from PIL import Image
 import matplotlib.pyplot as plt
-from torchvision.transforms import Compose, Resize, CenterCrop, ToTensor, Normalize
+from torchvision.transforms import Compose, Resize, CenterCrop, ToTensor
 
 import clip
+
 
 def img2vec(input_dir):
     model, preprocess = clip.load('ViT-B/32', jit=True)
@@ -20,7 +21,7 @@ def img2vec(input_dir):
         ToTensor()
     ])
 
-    imgs =[]
+    imgs = []
     input = input_dir + '/*.jpg'
     print('input path:', input)
 
@@ -38,6 +39,7 @@ def img2vec(input_dir):
 
     return files, img_features
 
+
 def visualize_rank(files, img_features, output_dir):
     row, col = 5, 10
     for query in img_features:
@@ -45,7 +47,7 @@ def visualize_rank(files, img_features, output_dir):
         idx_sorted = np.argsort(-probs.cpu(), axis=0)
         fig, ax = plt.subplots(row, col, figsize=(20, 25))
         fig_name = output_dir + '/' + files[idx_sorted[0]].split('/')[-1].split('.')[0] + '.png'
-        print('save fig name:',fig_name)
+        print('save fig name:', fig_name)
 
         loc = 0
         for idx in idx_sorted:
@@ -57,7 +59,8 @@ def visualize_rank(files, img_features, output_dir):
 
             ax[loc//col, loc-((loc//col)*col)].imshow(img)
             ax[loc//col, loc-((loc//col)*col)].tick_params(labelleft=False, labelbottom=False)
-            ax[loc//col, loc-((loc//col)*col)].tick_params(bottom=False, left=False, right=False, top=False)
+            ax[loc//col, loc-((loc//col)*col)].tick_params(top=False, bottom=False,
+                                                           left=False, right=False)
             ax[loc//col, loc-((loc//col)*col)].set_xlabel(cos_sim, fontsize=22)
             loc += 1
 
@@ -67,6 +70,7 @@ def visualize_rank(files, img_features, output_dir):
         fig.tight_layout()
         plt.savefig(fig_name)
         plt.close()
+
 
 def main():
     # argments settings
