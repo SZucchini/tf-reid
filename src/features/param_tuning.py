@@ -61,14 +61,21 @@ def ciede_sim(c_feature1, c_feature2):
     c1 = color.rgb2lab(np.array(c_feature1)/255)
     c2 = color.rgb2lab(np.array(c_feature2)/255)
     diff = color.deltaE_ciede2000(c1, c2)
+    print('diff:', diff)
+    print('diff shape:', diff.shape)
     return diff.sum()
 
 
 def rgb_sim(c_feature1, c_feature2):
     c1 = np.array(c_feature1)
     c2 = np.array(c_feature2)
-    diff = np.linalg.norm(c2-c1, axis=1)
-    return diff.sum()
+    max_diff = np.linalg.norm(np.array([255, 255, 255]) - np.array([0, 0, 0]))
+    diff = np.linalg.norm(c2-c1, axis=1) / max_diff
+    print('max diff:', max_diff)
+    print('diff:', diff)
+    print('diff shape:', diff.shape)
+    print('diff ave:', diff.mean())
+    return diff.mean()
 
 
 def culc_sim(c_features, distance="rgb"):
@@ -84,7 +91,7 @@ def culc_sim(c_features, distance="rgb"):
             if i != j:
                 sim[j, i] = sim[i, j]
 
-    sim = sim / sim.max()
+    # sim = sim / sim.max()
     sim = 1 - sim
     return sim
 
@@ -126,7 +133,6 @@ def save_sim_matrix(sim, c_num, p_num, output_dir):
 
 
 def main():
-    # argments settings
     parser = argparse.ArgumentParser()
     parser.add_argument("--input_dir", type=str, required=True,
                         help="input images dir path")
