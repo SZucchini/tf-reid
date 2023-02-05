@@ -146,7 +146,7 @@ def get_shoe_features(files):
     return shoe_imgs, shoe_palettes
 
 
-def save_shoe_color(shoe_imgs, shoe_palettes, files):
+def save_shoe_color(shoe_imgs, shoe_palettes, files, output_dir):
     num_img = len(files)
     fig, ax = plt.subplots(num_img, 2, figsize=(10, 10))
     for i, (img, palette, f) in enumerate(zip(shoe_imgs, shoe_palettes, files)):
@@ -160,7 +160,7 @@ def save_shoe_color(shoe_imgs, shoe_palettes, files):
         ax[i, 1].imshow(color)
         ax[i, 1].axis('off')
     fig.tight_layout()
-    plt.savefig('./shoe_color.png')
+    plt.savefig(output_dir + '/shoe_color.png')
     plt.close()
 
 
@@ -179,19 +179,8 @@ def main():
     args = parser.parse_args()
     print_args(args)
 
-    # if args.palette_sort:
-    #     palette_dir = args.output_dir + '/palette_sorted'
-    #     matrix_dir = args.output_dir + f'/matrix_{args.distance}_sorted'
-    # else:
-    #     palette_dir = args.output_dir + '/palette'
-    #     matrix_dir = args.output_dir + f'/matrix_{args.distance}'
-    # print('palette directory:', palette_dir)
-    # print('matrix directory:', matrix_dir)
-    # # check output dir exist
-    # if not os.path.exists(palette_dir):
-    #     os.makedirs(palette_dir)
-    # if not os.path.exists(matrix_dir):
-    #     os.makedirs(matrix_dir)
+    if not os.path.exists(args.output_dir):
+        os.makedirs(args.output_dir)
 
     input = args.input_dir + '/*.jpg'
     print('input images:', input)
@@ -199,14 +188,9 @@ def main():
     files.sort()
 
     shoe_imgs, shoe_palettes = get_shoe_features(files)
-    save_shoe_color(shoe_imgs, shoe_palettes, files)
+    save_shoe_color(shoe_imgs, shoe_palettes, files, args.output_dir)
 
     print()
-    # c_features = get_all_palette(files, c_num, p_num, args.palette_sort, args.black)
-    # print('c_features shape:', c_features.shape)
-    # sim = culc_sim(c_features, args.distance)
-    # ave_sim = culc_ave_sim(sim, args.imgs_per_person)
-    # save_sim_matrix(ave_sim, c_num, p_num, matrix_dir)
 
 
 if __name__ == '__main__':
