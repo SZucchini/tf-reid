@@ -1,3 +1,4 @@
+import cv2
 import torch
 import numpy as np
 from tqdm import tqdm
@@ -43,3 +44,20 @@ def get_all_palette(files, c_num, p_num, sort=False, black='del'):
                                                 black=black)
         c_features.append(palette)
     return np.array(c_features)
+
+
+def get_hist(cv_img, bins=128, div=4):
+    bgr_hist = []
+    window = cv_img.shape[0] // div
+    for i in range(div):
+        if i == div-1:
+            data = cv_img[i*window:, :, :]
+        else:
+            data = cv_img[i*window:(i+1)*window, :, :]
+        for j in range(3):
+            hist = cv2.calcHist([data], [j], None, [bins], [0, 256])
+            bgr_hist.append(hist[2:].reshape(bins-2,))
+
+    bgr_hist = np.array(bgr_hist)
+    bgr_hist = bgr_hist.reshape(-1)
+    return bgr_hist
