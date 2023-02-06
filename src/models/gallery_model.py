@@ -1,38 +1,40 @@
-import os
-import sys
-sys.path.append("..")
 import glob
 import argparse
 
+import cv2
 import torch
 import numpy as np
-from PIL import Image
-from skimage import color
 
-from features.build_features import img2vec, get_all_palette
-
-
-def ciede_sim(query, features):
-    q = color.rgb2lab(np.array([query/255]))
-    db = color.rgb2lab(features/255)
-    # print('q shape:', q.shape)
-    # print('db shape:', db.shape)
-    diff = color.deltaE_ciede2000(q, db)
-    csim = np.sum(diff, axis=(1, 2))
-    return csim
+from ultralytics import YOLO
+from features.build_features import img2vec, get_hist
 
 
-def rgb_sim(query, features):
-    q = np.array([query])
-    diff = np.linalg.norm(features-q, axis=2)
-    csim = np.sum(diff, axis=1)
-    return csim
+def get_shoe_bbox(file):
+    results = model.predict(source=file, save=False)
+    for res in results:
+        conf = res.boxes.conf
+        if conf.shape[0] == 0:
+            box = None
+        else:
+            idx = torch.argmax(conf)
+            box = res.boxes.xyxy[idx].to("cpu").numpy().astype(int)
+    return box
+
+
+def hist_sim(query, features):
+    if features.ndim == 1:
+        features = np.array([features])
+    top = np.dot(query, features.T)
+    bot = np.linalg.norm(query) * np.linalg.norm(features, axis=1)
+    cos_sim = top / bot
+    return cos_sim
 
 
 class Gallery:
     def __init__(self):
         self.vec_identifys = None
         self.color_identifys = None
+        self.shoe_identifys = None
         self.frames = None
         self.files = None
 
@@ -41,65 +43,119 @@ class Gallery:
         if vsim.shape[0] < k:
             k = vsim.shape[0]
         topk_idx = torch.argsort(vsim.cpu(), descending=True)[:k]
-        # return vsim[topk_idx], topk_idx
         return vsim, topk_idx
 
-    def get_csim_topk(self, query, vsim_topk_idx, k=5, distance="lab"):
-        if vsim_topk_idx.shape[0] == 1:
-            features = self.color_identifys[vsim_topk_idx].reshape(1, 4, 5, 3)
-        else:
-            features = self.color_identifys[vsim_topk_idx]
-        if distance == "lab":
-            csim = ciede_sim(query, features)
-        else:
-            csim = rgb_sim(query, features)
+    def get_hsim_topk(self, feature, query, vsim_topk_idx, k=5):
+        hsim = hist_sim(query, feature[vsim_topk_idx])
+        if hsim.shape[0] < k:
+            k = hsim.shape[0]
+        topk_idx = np.argsort(hsim)[:k]
+        return hsim, topk_idx
 
-        # csim = csim / csim.max()
-        # csim = 1 - csim
-        if csim.shape[0] < k:
-            k = csim.shape[0]
-        topk_idx = np.argsort(csim)[:k]
-        # return csim[topk_idx], topk_idx
-        return csim, topk_idx
-
-    def make_gallery(self, file_name, img_query, c_query, files):
+    def make_gallery(self, file_name, img_query, c_query, s_query):
         if self.vec_identifys is None:
+            print('Initialize gallery...')
             self.vec_identifys = torch.stack([img_query], dim=0)
             self.color_identifys = np.array([c_query])
+            if s_query is not None:
+                self.shoe_identifys = np.array([s_query])
+            else:
+                self.shoe_identifys = np.array(np.ones(30*3*2))
             self.files = [[file_name]]
             self.frames = [[file_name.split('_')[-1].split('.')[0]]]
+            print('vec identifys:', self.vec_identifys)
+            print('color identifys:', self.color_identifys)
+            print('shoe identifys:', self.shoe_identifys)
+            print('files:', self.files)
+            print('frames:', self.frames)
             return
 
+        print()
+        print('Culc image vector similarity...')
         vsim, vtopk_idx = self.get_vsim_topk(img_query)
         print('vsim_topk:', vsim[vtopk_idx])
         print('vsim_topk_idx:', vtopk_idx)
-        # print('color_identifys shape:', self.color_identifys.shape)
+        print('vsim_top1:', vsim[vtopk_idx[0]])
 
         if vsim[vtopk_idx[0]] < 0.7:
-            print('new register by img vec')
+            print()
+            print('Image vector similarity is low.')
+            print('new register by image vector')
             self.vec_identifys = torch.cat([self.vec_identifys, img_query], dim=0)
             self.color_identifys = np.concatenate([self.color_identifys, [c_query]], axis=0)
+            if s_query is not None:
+                self.shoe_identifys = np.concatenate([self.shoe_identifys, [s_query]], axis=0)
+            else:
+                self.shoe_identifys = np.concatenate([self.shoe_identifys, [np.ones(30*3*2)]],
+                                                     axis=0)
             self.files.append([file_name])
             self.frames.append([file_name.split('_')[-1].split('.')[0]])
             return
 
-        csim, ctopk_idx = self.get_csim_topk(c_query, vtopk_idx)
-        print('csim shape:', csim.shape)
-        print('csim_topk_idx:', ctopk_idx)
-        print('csim_top1:', csim[ctopk_idx[0]])
-        if csim[ctopk_idx[0]] > 300:
-            print('new register by color')
-            print(self.vec_identifys.shape, img_query.shape)
-            self.vec_identifys = torch.cat([self.vec_identifys,
-                                            torch.stack([img_query], dim=0)], dim=0)
-            self.color_identifys = np.concatenate([self.color_identifys, [c_query]], axis=0)
-            self.files.append([file_name])
-            self.frames.append([file_name.split('_')[-1].split('.')[0]])
-            return
+        print()
+        print('Culc color similarity...')
+        img_hsim, img_htopk_idx = self.get_hsim_topk(self.color_identifys, c_query, vtopk_idx)
+        print('img_hsim shape:', img_hsim.shape)
+        print('img_hsim_topk_idx:', img_htopk_idx)
+        print('img_hsim_top1:', img_hsim[img_htopk_idx[0]])
 
-        # 既存のデータの対応するインデックスにfile_nameとframeを追加
-        self.files[vtopk_idx[ctopk_idx[0]]].append(file_name)
-        self.frames[vtopk_idx[ctopk_idx[0]]].append(file_name.split('_')[-1].split('.')[0])
+        if s_query is not None:
+            print()
+            print('Culc shoe similarity...')
+            shoe_hsim, shoe_htopk_idx = self.get_hsim_topk(self.shoe_identifys, s_query, vtopk_idx)
+            print('shoe_hsim shape:', shoe_hsim.shape)
+            print('shoe_hsim_topk_idx:', shoe_htopk_idx)
+            print('shoe_hsim_top1:', shoe_hsim[shoe_htopk_idx[0]])
+
+            if img_hsim[img_htopk_idx[0]] < 0.55 and shoe_hsim[shoe_htopk_idx[0]] < 0.6:
+                print('Color and shoe similarity is low.')
+                print('new register by color and shoe')
+                print(self.vec_identifys.shape, img_query.shape)
+                self.vec_identifys = torch.cat([self.vec_identifys,
+                                                torch.stack([img_query], dim=0)], dim=0)
+                self.color_identifys = np.concatenate([self.color_identifys, [c_query]], axis=0)
+                self.shoe_identifys = np.concatenate([self.shoe_identifys, [s_query]], axis=0)
+                self.files.append([file_name])
+                self.frames.append([file_name.split('_')[-1].split('.')[0]])
+                return
+
+            else:
+                print('Color and shoe similarity is high.')
+                if shoe_hsim[shoe_htopk_idx[0]] > 0.6:
+                    print('Shoe similarity is high.')
+                    self.files[vtopk_idx[shoe_htopk_idx[0]]].append(file_name)
+                    self.frames[vtopk_idx[shoe_htopk_idx[0]]].append(file_name.split('_')[-1].split('.')[0])
+                    if np.all(self.shoe_identifys[vtopk_idx[shoe_htopk_idx[0]]] == 1):
+                        self.shoe_identifys[vtopk_idx[shoe_htopk_idx[0]]] = s_query
+                    return
+                else:
+                    print('Shoe similarity is low. Using color similarity.')
+                    self.files[vtopk_idx[img_htopk_idx[0]]].append(file_name)
+                    self.frames[vtopk_idx[img_htopk_idx[0]]].append(file_name.split('_')[-1].split('.')[0])
+                    if np.all(self.shoe_identifys[vtopk_idx[img_htopk_idx[0]]] == 1):
+                        self.shoe_identifys[vtopk_idx[img_htopk_idx[0]]] = s_query
+
+        else:
+            print()
+            print('shoe query is None')
+            if img_hsim[img_htopk_idx[0]] < 0.55:
+                print('Color hist similarity is low.')
+                print('new register by color')
+                print(self.vec_identifys.shape, img_query.shape)
+                self.vec_identifys = torch.cat([self.vec_identifys,
+                                                torch.stack([img_query], dim=0)], dim=0)
+                self.color_identifys = np.concatenate([self.color_identifys, [c_query]], axis=0)
+                self.shoe_identifys = np.concatenate([self.shoe_identifys, [np.ones(30*3*2)]],
+                                                     axis=0)
+                self.files.append([file_name])
+                self.frames.append([file_name.split('_')[-1].split('.')[0]])
+                return
+            else:
+                print('Color hist similarity is high.')
+                print('add file and frame to DB')
+                self.files[vtopk_idx[img_htopk_idx[0]]].append(file_name)
+                self.frames[vtopk_idx[img_htopk_idx[0]]].append(file_name.split('_')[-1].split('.')[0])
+                return
 
 
 def main():
@@ -117,37 +173,29 @@ def main():
     files = glob.glob(input)
     files.sort()
 
-    img_features = img2vec(files)
-    c_features = get_all_palette(files, c_num=5, p_num=4, sort=True, black='del')
-
     gallery = Gallery()
-    # files, img_features, c_featuresをループ処理
-    for i, (file, img_feature, c_feature) in enumerate(zip(files, img_features, c_features)):
-        gallery.make_gallery(file, img_feature, c_feature, files)
-        """
-        img_feature = img_feature.to('cpu').detach().numpy().copy()
-        c_feature = c_feature.reshape(-1, 3)
-        # 類似度計算
-        vsim, topk_idx = gallery.get_vsim_topk(img_feature, k=args.k1)
-        csim, topk_idx = gallery.get_csim_topk(c_feature, k=args.k2, distance=args.distance)
-        # 類似度閾値を超えたものを抽出
-        vsim_idx = np.where(vsim > args.vsim_thr)[0]
-        csim_idx = np.where(csim < args.csim_thr)[0]
-        # 閾値を超えたものがあれば、類似画像として登録
-        if len(vsim_idx) > 0 and len(csim_idx) > 0:
-            idx = np.intersect1d(vsim_idx, csim_idx)
-            if len(idx) > 0:
-                print('similar images:', file)
-                for j in idx:
-                    print('  ', gallery.files[j][0])
-                gallery.files[j].append(file)
-                gallery.frames[j].append(file.split('_')[0].split('.')[0])
-            else:
-                gallery.make_gallery(file, img_feature, c_feature)
-        else:
-            gallery.make_gallery(file, img_feature, c_feature)
-        """
+    img_features = img2vec(files)
+    print()
 
+    for i, (file, img_feature) in enumerate(zip(files, img_features)):
+        print('query file:', file)
+        img = cv2.imread(file)
+        shoe_bbox = get_shoe_bbox(file)
+        if shoe_bbox is not None:
+            print('shoe bbox was detected!', shoe_bbox)
+        else:
+            print('shoe bbox was not detected!')
+
+        img_hist = get_hist(img, bins=64, div=6)
+        if shoe_bbox is not None:
+            shoe_img = img[shoe_bbox[1]:shoe_bbox[3], shoe_bbox[0]:shoe_bbox[2]]
+            shoe_hist = get_hist(shoe_img, bins=32, div=2)
+        else:
+            shoe_hist = None
+        gallery.make_gallery(file, img_feature, img_hist, shoe_hist)
+        print('--------------------------------------------------------------------')
+
+    print()
     print('files')
     for i, file in enumerate(gallery.files):
         print(i, file)
@@ -159,4 +207,5 @@ def main():
 
 
 if __name__ == '__main__':
+    model = YOLO("../../yolo/weights/best400.pt")
     main()
