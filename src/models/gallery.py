@@ -1,5 +1,6 @@
 # import os
 import glob
+import pickle
 import argparse
 from logging import getLogger, StreamHandler, DEBUG, Formatter
 
@@ -146,6 +147,7 @@ def get_runners(files):
     with torch.no_grad():
         output = vit(imgs).argmax(dim=1)
     idx = np.where(output == 1)[0]
+    del imgs
     del output
     torch.cuda.empty_cache()
     files = np.array(files)
@@ -202,6 +204,10 @@ def build_gallery(files):
             query = get_query(runner)
             logger.debug('Build Gallery')
             gallery.build(query)
+
+    with open('../../models/gallery.pickle', mode='wb') as f:
+        pickle.dump(gallery, f)
+
     return 0
 
 
