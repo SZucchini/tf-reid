@@ -146,7 +146,8 @@ def get_runners(files):
     imgs = torch.stack(imgs).to(device)
     with torch.no_grad():
         output = vit(imgs).argmax(dim=1)
-    idx = np.where(output == 1)[0]
+    np_output = output.to("cpu").numpy()
+    idx = np.where(np_output == 1)[0]
     del imgs
     del output
     torch.cuda.empty_cache()
