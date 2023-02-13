@@ -46,7 +46,7 @@ def get_all_palette(files, c_num, p_num, sort=False, black='del'):
     return np.array(c_features)
 
 
-def get_hist(cv_img, bins=128, div=4):
+def get_hist(cv_img, bins=9, div=2):
     bgr_hist = []
     window = cv_img.shape[0] // div
     for i in range(div):
@@ -55,8 +55,10 @@ def get_hist(cv_img, bins=128, div=4):
         else:
             data = cv_img[i*window:(i+1)*window, :, :]
         for j in range(3):
-            hist = cv2.calcHist([data], [j], None, [bins], [0, 256])
-            bgr_hist.append(hist[2:].reshape(bins-2,))
+            hist = cv2.calcHist([data], [j], None, [bins], [0, 256])[1:]
+            # 改善の余地あり？
+            hist = cv2.normalize(hist, hist, 0, 255, cv2.NORM_MINMAX)
+            bgr_hist.append(hist.reshape(bins-1,))
 
     bgr_hist = np.array(bgr_hist)
     bgr_hist = bgr_hist.reshape(-1)
