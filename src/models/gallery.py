@@ -1,6 +1,7 @@
 # import os
 import glob
 import argparse
+from logging import getLogger, StreamHandler, DEBUG, Formatter
 
 import cv2
 import torch
@@ -11,6 +12,15 @@ from torchvision import transforms
 
 from ultralytics import YOLO
 from features.build_features import get_hist
+
+
+logger = getLogger("Log")
+logger.setLevel(DEBUG)
+handler = StreamHandler()
+handler.setLevel(DEBUG)
+handler_format = Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+handler.setFormatter(handler_format)
+logger.addHandler(handler)
 
 
 def queue(queue, val):
@@ -71,6 +81,10 @@ class Gallery:
     def get_nearest_idx(self, query):
         diff = abs(query['xpos'] - self.xpos[self.candidates, 4])
         while True:
+            # only for side video
+            if diff[np.argmin(diff)] > 1500:
+                idx = None
+                break
             idx = self.candidates[np.argmin(diff)]
             if self.frame[idx, 4] == query['frame']:
                 diff[np.argmin(diff)] = 10000
@@ -98,18 +112,16 @@ class Gallery:
         return idx
 
     def build(self, query):
-        print('============================================================')
-        print('query:', query)
+        logger.debug('query: {}'.format(query))
         if self.img_hist is None:
-            print('Init Gallery')
+            logger.debug('Init Gallery')
             self.resister(query)
             return 0
 
         self.candidates, situation = self.get_candidates_by_frame(query)
-        print()
-        print('candidates:', self.candidates, 'situation:', situation)
+        logger.debug('candidates: {0}, situation: {1}'.format(self.candidates, situation))
         if self.candidates is None:
-            print('Candidates are None. Register new query.')
+            logger.debug('Candidates are None. Register new query.')
             self.resister(query)
             return 0
 
@@ -118,12 +130,12 @@ class Gallery:
         elif situation == "new":
             update_idx = self.get_similar_idx(query)
 
-        print('update_idx:', update_idx)
+        logger.debug('update_idx: {}'.format(update_idx))
         if update_idx is not None:
-            print('Update Gallery')
+            logger.debug('Update Gallery')
             self.update(update_idx, query)
         else:
-            print('Update idx is None. Register new query.')
+            logger.debug('Update idx is None. Register new query.')
             self.resister(query)
         return 0
 
@@ -134,6 +146,8 @@ def get_runners(files):
     with torch.no_grad():
         output = vit(imgs).argmax(dim=1)
     idx = np.where(output == 1)[0]
+    del output
+    torch.cuda.empty_cache()
     files = np.array(files)
     return files[idx]
 
@@ -174,20 +188,19 @@ def get_query(file):
 
 def build_gallery(files):
     runners = get_runners(files)
-    print()
-    print('runners:', runners)
+    logger.debug('runners: {}'.format(runners))
     if len(runners) == 0:
         return 0
     elif len(runners) == 1:
         query = get_query(runners[0])
-        print('Build Gallery')
+        logger.debug('Build Gallery')
         gallery.build(query)
     else:
         x = np.array([int(runner.split('/')[-1].split('_')[2]) for runner in runners])
         runners = runners[np.argsort(x)[::-1]]
         for runner in runners:
             query = get_query(runner)
-            print('Build Gallery')
+            logger.debug('Build Gallery')
             gallery.build(query)
     return 0
 
@@ -202,7 +215,7 @@ def main():
     args = parser.parse_args()
 
     input = args.input_dir + '/*.jpg'
-    print('input images dir:', input)
+    logger.debug('input images dir: {}'.format(input))
     files = natsorted(glob.glob(input))
 
     cluster = []
@@ -221,20 +234,19 @@ def main():
         if i == len(files) - 1:
             build_gallery(files)
 
-    print()
-    print('Gallery files')
+    logger.debug('Gallery files')
     for i, file in enumerate(gallery.files):
-        print(i, file)
-    print('Gallery frame')
+        logger.debug('{}: {}'.format(i, file))
+    logger.debug('Gallery frame')
     for i, frame in enumerate(gallery.frames):
-        print(i, frame)
+        logger.debug('{}: {}'.format(i, frame))
 
 
 if __name__ == '__main__':
     gallery = Gallery()
     yolo = YOLO("../../yolo/weights/best400.pt")
 
-    vit = torch.load('../../models/vit_server_addlayer_cpu.pth')
+    vit = torch.load('../../models/vit_runner_cpu.pth')
     img_transforms = transforms.Compose(
         [
             transforms.Resize(256),
