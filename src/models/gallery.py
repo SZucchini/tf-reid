@@ -225,20 +225,24 @@ def main():
     files = natsorted(glob.glob(input))
 
     cluster = []
+    cluster_frames = []
     for i in range(len(files)):
         filename = files[i].split('/')[-1]
         frame = int(filename.split('_')[0])
         if len(cluster) > 0:
-            if cluster[-1] == frame:
-                cluster.append(frame)
+            if cluster_frames[-1] == frame:
+                cluster.append(files[i])
+                cluster_frames.append(frame)
             else:
-                build_gallery(files)
-                cluster = [frame]
+                build_gallery(cluster)
+                cluster = [files[i]]
+                cluster_frames = [frame]
         else:
-            cluster.append(frame)
+            cluster.append(files[i])
+            cluster_frames.append(frame)
 
         if i == len(files) - 1:
-            build_gallery(files)
+            build_gallery(cluster)
 
     logger.debug('Gallery files')
     for i, file in enumerate(gallery.files):
