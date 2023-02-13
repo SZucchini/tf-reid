@@ -10,6 +10,8 @@ yolo/input/
 yolo/runs/
 yolo/weights/*.pt
 notebooks/file_split.ipynb
+models/*.pth
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
