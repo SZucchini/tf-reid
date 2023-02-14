@@ -57,7 +57,7 @@ def get_hist(cv_img, bins=9, div=2):
         for j in range(3):
             hist = cv2.calcHist([data], [j], None, [bins], [0, 256])[1:]
             # 改善の余地あり？
-            hist = cv2.normalize(hist, hist, 0, 255, cv2.NORM_MINMAX)
+            # hist = cv2.normalize(hist, hist, 0, 255, cv2.NORM_MINMAX)
             bgr_hist.append(hist.reshape(bins-1,))
 
     bgr_hist = np.array(bgr_hist)

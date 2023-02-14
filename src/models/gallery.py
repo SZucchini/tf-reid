@@ -31,12 +31,13 @@ def queue(queue, val):
 
 
 def hist_sim(candidates_hist, query_hist):
+    corrs = []
     if candidates_hist.ndim == 1:
         candidates_hist = np.array([candidates_hist])
-    top = np.dot(query_hist, candidates_hist.T)
-    bot = np.linalg.norm(query_hist) * np.linalg.norm(candidates_hist, axis=1)
-    cos_sim = top / bot
-    return cos_sim
+    for hist in candidates_hist:
+        corr = cv2.compareHist(hist, query_hist, cv2.HISTCMP_CORREL)
+        corrs.append(corr)
+    return np.array(corrs)
 
 
 class Gallery:
@@ -50,8 +51,8 @@ class Gallery:
 
     def resister(self, query):
         if self.img_hist is None:
-            self.img_hist = query['img_hist']
-            self.shoe_hist = query['shoe_hist']
+            self.img_hist = np.array([query['img_hist']])
+            self.shoe_hist = np.array([query['shoe_hist']])
             self.xpos = np.array([[0, 0, 0, 0, query['xpos']]])
             self.frame = np.array([[0, 0, 0, 0, query['frame']]])
         else:
@@ -62,7 +63,7 @@ class Gallery:
         self.files.append([query['file']])
 
     def update(self, idx, query):
-        if np.all(self.shoe_hist[idx] < 0):
+        if np.all(self.shoe_hist[idx] == 0):
             self.shoe_hist[idx] = query['shoe_hist']
         self.xpos[idx] = queue(self.xpos[idx], query['xpos'])
         self.frame[idx] = queue(self.frame[idx], query['frame'])
@@ -81,19 +82,19 @@ class Gallery:
         return None, "None"
 
     def get_nearest_idx(self, query):
-        diff = abs(query['xpos'] - self.xpos[self.candidates, 4])
+        diff = query['xpos'] - self.xpos[self.candidates, 4]
         while True:
             # only for side video
+            diff[diff > 300] = 10000
+            diff[diff < -150] = 10000
             if diff[np.argmin(diff)] > 1500:
                 idx = None
                 break
             idx = self.candidates[np.argmin(diff)]
             if self.frame[idx, 4] == query['frame']:
                 diff[np.argmin(diff)] = 10000
+                continue
             else:
-                break
-            if np.all(diff == 10000):
-                idx = None
                 break
         return idx
 
@@ -104,12 +105,12 @@ class Gallery:
         shoe_hist_sim = hist_sim(self.shoe_hist[self.candidates], query['shoe_hist'])
         for i in range(len(self.candidates)):
             if shoe_hist_sim[i] < 0:
-                if img_hist_sim[i] > 0.6:
+                if img_hist_sim[i] > 0.8:
                     idx = self.candidates[i]
                     break
             else:
                 sim = (img_hist_sim[i] + shoe_hist_sim[i]) / 2
-                if sim > 0.6:
+                if sim > 0.8:
                     idx = self.candidates[i]
                     break
         return idx
@@ -179,7 +180,7 @@ def get_query(file):
         shoe_img = img[shoe_bbox[1]:shoe_bbox[3], shoe_bbox[0]:shoe_bbox[2]]
         shoe_hist = get_hist(shoe_img, bins=9, div=2)
     else:
-        shoe_hist = np.full_like(img_hist, -255)
+        shoe_hist = np.zeros_like(img_hist)
 
     query = {
         'img_hist': img_hist,
@@ -208,7 +209,7 @@ def build_gallery(files):
             logger.debug('Build Gallery')
             gallery.build(query)
 
-    with open('../../models/gallery.pickle', mode='wb') as f:
+    with open('../../models/gallery_v2.pickle', mode='wb') as f:
         pickle.dump(gallery, f)
 
     return 0
