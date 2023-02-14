@@ -11,6 +11,7 @@ yolo/runs/
 yolo/weights/*.pt
 notebooks/file_split.ipynb
 models/*.pth
+models/*.pickle
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

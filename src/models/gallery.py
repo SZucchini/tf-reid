@@ -52,10 +52,11 @@ class Gallery:
         if self.img_hist is None:
             self.img_hist = query['img_hist']
             self.shoe_hist = query['shoe_hist']
-            self.xpos = np.array([0, 0, 0, 0, query['xpos']])
-            self.frame = np.array([0, 0, 0, 0, query['frame']])
+            self.xpos = np.array([[0, 0, 0, 0, query['xpos']]])
+            self.frame = np.array([[0, 0, 0, 0, query['frame']]])
         else:
             self.img_hist = np.vstack([self.img_hist, query['img_hist']])
+            self.shoe_hist = np.vstack([self.shoe_hist, query['shoe_hist']])
             self.xpos = np.vstack([self.xpos, np.array([0, 0, 0, 0, query['xpos']])])
             self.frame = np.vstack([self.frame, np.array([0, 0, 0, 0, query['frame']])])
         self.files.append([query['file']])
@@ -93,6 +94,7 @@ class Gallery:
                 break
             if np.all(diff == 10000):
                 idx = None
+                break
         return idx
 
     def get_similar_idx(self, query):
@@ -113,7 +115,7 @@ class Gallery:
         return idx
 
     def build(self, query):
-        logger.debug('query: {}'.format(query))
+        logger.debug('query file: {}'.format(query['file']))
         if self.img_hist is None:
             logger.debug('Init Gallery')
             self.resister(query)
@@ -249,7 +251,7 @@ def main():
     for i, file in enumerate(gallery.files):
         logger.debug('{}: {}'.format(i, file))
     logger.debug('Gallery frame')
-    for i, frame in enumerate(gallery.frames):
+    for i, frame in enumerate(gallery.frame):
         logger.debug('{}: {}'.format(i, frame))
 
 
