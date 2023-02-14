@@ -44,6 +44,7 @@ class Gallery:
     def __init__(self):
         self.img_hist = None
         self.shoe_hist = None
+        self.shoe_score = None
         self.xpos = None
         self.frame = None
         self.files = []
@@ -53,18 +54,23 @@ class Gallery:
         if self.img_hist is None:
             self.img_hist = np.array([query['img_hist']])
             self.shoe_hist = np.array([query['shoe_hist']])
+            self.shoe_score = np.array([query['shoe_score']])
             self.xpos = np.array([[0, 0, 0, 0, query['xpos']]])
             self.frame = np.array([[0, 0, 0, 0, query['frame']]])
         else:
             self.img_hist = np.vstack([self.img_hist, query['img_hist']])
             self.shoe_hist = np.vstack([self.shoe_hist, query['shoe_hist']])
+            self.shoe_score = np.vstack([self.shoe_score, query['shoe_score']])
             self.xpos = np.vstack([self.xpos, np.array([0, 0, 0, 0, query['xpos']])])
             self.frame = np.vstack([self.frame, np.array([0, 0, 0, 0, query['frame']])])
         self.files.append([query['file']])
 
     def update(self, idx, query):
-        if np.all(self.shoe_hist[idx] == 0):
+        if self.shoe_score[idx] < query['shoe_score']:
             self.shoe_hist[idx] = query['shoe_hist']
+            self.shoe_score[idx] = query['shoe_score']
+        # if np.all(self.shoe_hist[idx] == 0):
+        #     self.shoe_hist[idx] = query['shoe_hist']
         self.xpos[idx] = queue(self.xpos[idx], query['xpos'])
         self.frame[idx] = queue(self.frame[idx], query['frame'])
         self.files[idx].append(query['file'])
@@ -164,10 +170,15 @@ def get_shoe_bbox(file):
         conf = res.boxes.conf
         if conf.shape[0] == 0:
             box = None
+            score = None
         else:
             idx = torch.argmax(conf)
             box = res.boxes.xyxy[idx].to("cpu").numpy().astype(int)
-    return box
+            score = int(conf[idx].to("cpu").numpy())
+    del results
+    del conf
+    torch.cuda.empty_cache()
+    return box, score
 
 
 def get_query(file):
@@ -175,16 +186,19 @@ def get_query(file):
     img = cv2.imread(file)
     img_hist = get_hist(img, bins=9, div=2)
 
-    shoe_bbox = get_shoe_bbox(file)
+    shoe_bbox, score = get_shoe_bbox(file)
     if shoe_bbox is not None:
         shoe_img = img[shoe_bbox[1]:shoe_bbox[3], shoe_bbox[0]:shoe_bbox[2]]
         shoe_hist = get_hist(shoe_img, bins=9, div=2)
+        shoe_score = score
     else:
         shoe_hist = np.zeros_like(img_hist)
+        shoe_score = 0
 
     query = {
         'img_hist': img_hist,
         'shoe_hist': shoe_hist,
+        'shoe_score': shoe_score,
         'xpos': int(file.split('/')[-1].split('_')[2]),
         'frame': int(file.split('/')[-1].split('_')[0]),
         'file': file
@@ -209,7 +223,7 @@ def build_gallery(files):
             logger.debug('Build Gallery')
             gallery.build(query)
 
-    with open('../../models/gallery_v2.pickle', mode='wb') as f:
+    with open('../../models/gallery_v3.pickle', mode='wb') as f:
         pickle.dump(gallery, f)
 
     return 0
