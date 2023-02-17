@@ -3,19 +3,6 @@ import numpy as np
 from kalman import KalmanFilter
 
 
-"""
-query = [q1, q2, q3, ...]
-qx = {
-    'img_hist': img_hist,
-    'shoe_hist': shoe_hist,
-    'shoe_score': shoe_score,
-    'xpos': xpos,
-    'frame': int(file.split('/')[-1].split('_')[0]),
-    'file': file
-}
-"""
-
-
 class Scene:
     # 初期化、登録、更新、予測座標取得
     def __init__(self):

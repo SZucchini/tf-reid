@@ -1,4 +1,5 @@
 import glob
+import pickle
 import argparse
 from logging import getLogger, StreamHandler, DEBUG, Formatter
 
@@ -180,6 +181,9 @@ def main():
             scenes = make_scene(frame_files, scenes)
             last_frame = frame
             frame_files = [files[i]]
+
+    with open('../../models/scenes.pickle', mode='wb') as f:
+        pickle.dump(scenes, f)
 
     logger.debug('Scenes: {}'.format(len(scenes)))
     return 0
