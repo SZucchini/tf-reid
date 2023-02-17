@@ -97,7 +97,7 @@ class Gallery:
                 break
         if len(idx_series) == 0:
             idx_series = None
-        idx_circle = np.where((diff > 3600) & (diff < 5400))[0]  # 閾値
+        idx_circle = np.where((diff > 3900) & (diff < 5100))[0]  # 閾値
         if len(idx_circle) == 0:
             idx_circle = None
 
@@ -122,26 +122,42 @@ class Gallery:
 
     def get_circle_idx(self, entry_query):
         idx = None
-        max_sim = 0.65  # 閾値
-        max_sim_ave = 0.5  # 閾値
+        # idx_ave = None
+        # max_sim = 0.65  # 閾値
+        # max_sim_ave = 0.4  # 閾値
         img_hist_sim = hist_sim(self.img_hist[self.cand_circle], entry_query[0]['img_hist'])
         shoe_hist_sim = hist_sim(self.shoe_hist[self.cand_circle], entry_query[0]['shoe_hist'])
         logger.debug('img_hist_sim: {}'.format(img_hist_sim))
         logger.debug('shoe_hist_sim: {}'.format(shoe_hist_sim))
 
-        for i in range(len(self.cand_circle)):
-            if shoe_hist_sim[i] == 1:
-                sim = img_hist_sim[i]
-                logger.debug('sim: {}'.format(sim))
-                if sim > max_sim:
-                    idx = self.cand_circle[i]
-                    max_sim = sim
-            else:
-                sim = (img_hist_sim[i] + shoe_hist_sim[i]) / 2  # 閾値
-                logger.debug('sim: {}'.format(sim))
-                if sim > max_sim_ave:
-                    idx = self.cand_circle[i]
-                    max_sim_ave = sim
+        if np.all(img_hist_sim < 0.1):
+            idx = None
+            return
+
+        high_img_hist = img_hist_sim[img_hist_sim > 0.7]
+        if len(high_img_hist) > 0:
+            idx = self.cand_circle[img_hist_sim == np.max(high_img_hist)]
+            if len(idx) > 0:
+                idx = idx[0]
+            return idx
+        if len(high_img_hist) == 0:
+            idx = "pass"
+            return idx
+
+        # for i in range(len(self.cand_circle)):
+        #     if shoe_hist_sim[i] == 1:
+        #         sim = img_hist_sim[i]
+        #         logger.debug('sim: {}'.format(sim))
+        #         if sim > max_sim:
+        #             idx = self.cand_circle[i]
+        #             max_sim = sim
+        #     else:
+        #         sim = (img_hist_sim[i] + shoe_hist_sim[i]) / 2  # 閾値
+        #         logger.debug('sim: {}'.format(sim))
+        #         if sim > max_sim_ave:
+        #             idx_ave = self.cand_circle[i]
+        #             max_sim_ave = sim
+
         return idx
 
     def eval_out(self, frame_query):
@@ -159,6 +175,7 @@ class Gallery:
         sim_matrix = None
         for query in frame_query:
             sim = []
+            # shoe_scoreで重みつき和にする？
             img_hist_sim = hist_sim(self.img_hist[self.cand_series], query['img_hist'])
             shoe_hist_sim = hist_sim(self.shoe_hist[self.cand_series], query['shoe_hist'])
             for i in range(len(self.cand_series)):
@@ -187,6 +204,7 @@ class Gallery:
         self.cand_series, self.cand_circle = self.get_candidates_by_frame(frame_query)
         if self.cand_series is None and self.cand_circle is None:
             logger.debug('No candidates. Register new frame query.')
+            logger.debug('The number of frame query: {}'.format(len(frame_query)))
             self.resister(frame_query)
             return 0
 
@@ -194,9 +212,14 @@ class Gallery:
             frame_query, entry_query = self.eval_entry(frame_query)
             if entry_query is not None:
                 circle_idx = self.get_circle_idx(entry_query)
-                if circle_idx is not None:
+                if circle_idx == "pass":
+                    logger.debug('Pass resist and update.')
+                    pass
+                elif circle_idx is not None:
                     self.update(circle_idx, entry_query[0])
                 else:
+                    logger.debug('No color candidates. Register new frame query.')
+                    logger.debug('The number of entry query: {}'.format(len(entry_query)))
                     self.resister(entry_query)
 
         if frame_query is None:
