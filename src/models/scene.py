@@ -10,7 +10,7 @@ class Scene:
         self.shoe_score = []
         self.start = None
         self.last = None
-        self.kalman = []
+        self.kf = []
         self.img_file = []
         self.flag = []
 
@@ -24,7 +24,7 @@ class Scene:
             self.shoe_hist = np.vstack([self.shoe_hist, q['shoe_hist']])
         self.last = q['frame']
         self.shoe_score.append(q['shoe_score'])
-        self.kalman.append(KalmanFilter(q['xpos'], 1))
+        self.kf.append(KalmanFilter(np.array([q['xpos'], 0]), 1))
         self.img_file.append(q['file'])
         self.flag.append(1)
 
@@ -33,13 +33,13 @@ class Scene:
             self.shoe_hist[idx] = q['shoe_hist']
             self.shoe_score[idx] = q['shoe_score']
         self.last = q['frame']
-        self.kalman[idx].update(np.array([q['xpos'], q['xpos'] - self.kalman[idx].last_z[0]]))
+        self.kf[idx].update(q['xpos'])
 
     def pred_xpos(self):
         pred = []
-        for i in range(len(self.kalman)):
+        for i in range(len(self.kf)):
             if self.flag[i]:
-                xpos = self.kalman[i].predict()
+                xpos = self.kf[i].predict()
                 if xpos > 3900:
                     self.flag[i] = 0
                     pred.append(-1)

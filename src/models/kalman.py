@@ -35,7 +35,6 @@ class KalmanFilter:
         self.R = np.array([25]).reshape(1, 1)
         self.x = x0
         self.P = np.diag([1, 1])
-        self.last_z = x0
 
     def predict(self):
         self.x = np.dot(self.F, self.x)
@@ -43,7 +42,6 @@ class KalmanFilter:
         return self.x[0]
 
     def update(self, z):
-        self.last_z = z
         K = np.dot(np.dot(self.P, self.H.T),
                    np.linalg.inv(np.dot(np.dot(self.H, self.P), self.H.T) + self.R))
         self.x = self.x + np.dot(K, (z - np.dot(self.H, self.x)))

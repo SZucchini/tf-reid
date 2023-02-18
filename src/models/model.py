@@ -55,7 +55,7 @@ def get_shoe_bbox(file):
         else:
             idx = torch.argmax(conf)
             box = res.boxes.xyxy[idx].to("cpu").numpy().astype(int)
-            score = int(conf[idx].to("cpu").numpy())
+            score = conf[idx].to("cpu").numpy()
     del results, conf
     torch.cuda.empty_cache()
     return box, score
@@ -182,7 +182,7 @@ def main():
             last_frame = frame
             frame_files = [files[i]]
 
-    with open('../../models/scenes.pickle', mode='wb') as f:
+    with open('../../models/scenes_updated.pickle', mode='wb') as f:
         pickle.dump(scenes, f)
 
     logger.debug('Scenes: {}'.format(len(scenes)))
