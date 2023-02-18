@@ -33,7 +33,7 @@ class Scene:
             self.shoe_hist[idx] = q['shoe_hist']
             self.shoe_score[idx] = q['shoe_score']
         self.last = q['frame']
-        self.kalman[idx].update(q['xpos'])
+        self.kalman[idx].update(np.array([q['xpos'], q['xpos'] - self.kalman[idx].last_z[0]]))
 
     def pred_xpos(self):
         pred = []
