@@ -4,7 +4,6 @@ from kalman import KalmanFilter
 
 
 class Scene:
-    # 初期化、登録、更新、予測座標取得
     def __init__(self):
         self.img_hsit = None
         self.shoe_hsit = None
