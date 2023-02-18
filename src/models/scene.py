@@ -6,6 +6,7 @@ from kalman import KalmanFilter
 class Scene:
     def __init__(self):
         self.img_hsit = None
+        self.shoe_img = []
         self.shoe_hsit = None
         self.shoe_score = []
         self.start = None
@@ -17,10 +18,12 @@ class Scene:
     def resister(self, q):
         if self.start is None:
             self.img_hist = np.array([q['img_hist']])
+            self.shoe_img.append(q['shoe_img'])
             self.shoe_hist = np.array([q['shoe_hist']])
             self.start = q['frame']
         else:
             self.img_hist = np.vstack([self.img_hist, q['img_hist']])
+            self.shoe_img.append(q['shoe_img'])
             self.shoe_hist = np.vstack([self.shoe_hist, q['shoe_hist']])
         self.last = q['frame']
         self.shoe_score.append(q['shoe_score'])
@@ -29,7 +32,11 @@ class Scene:
         self.flag.append(1)
 
     def update(self, q, idx):
+        if q['xpos'] > 1800 and q['xpos'] < 2000:
+            self.img_hist[idx] = q['img_hist']
         if self.shoe_score[idx] < q['shoe_score']:
+            self.shoe_img[idx] = 0
+            self.shoe_img[idx] = q['shoe_img']
             self.shoe_hist[idx] = q['shoe_hist']
             self.shoe_score[idx] = q['shoe_score']
         self.last = q['frame']
@@ -40,7 +47,7 @@ class Scene:
         for i in range(len(self.kf)):
             if self.flag[i]:
                 xpos = self.kf[i].predict()
-                if xpos > 3900:
+                if xpos > 3880:
                     self.flag[i] = 0
                     pred.append(-1)
                 else:

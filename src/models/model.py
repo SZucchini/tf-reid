@@ -71,12 +71,14 @@ def get_query(file):
         shoe_hist = get_hist(shoe_img, bins=9, div=2)
         shoe_score = score
     else:
+        shoe_img = np.zeros_like(img)
         shoe_hist = np.zeros_like(img_hist)
         shoe_score = 0
-    xpos = (int(file.split('/')[-1].split('_')[2]) + int(file.split('/')[-1].split('_')[4])) / 2
+    xpos = int(file.split('/')[-1].split('_')[4])
 
     q = {
         'img_hist': img_hist,
+        'shoe_img': shoe_img,
         'shoe_hist': shoe_hist,
         'shoe_score': shoe_score,
         'xpos': xpos,
@@ -119,6 +121,9 @@ def match(query, pred):
     new_query = []
     for i in range(len(query)):
         if i not in q_idx:
+            # queryの位置が左よりではない場合は除外すべき
+            if query[i]['xpos'] > 500:
+                continue
             new_query.append(query[i])
 
     return q_idx, p_idx, new_query
@@ -182,7 +187,7 @@ def main():
             last_frame = frame
             frame_files = [files[i]]
 
-    with open('../../models/scenes_updated.pickle', mode='wb') as f:
+    with open('../../models/scenes_updated2.pickle', mode='wb') as f:
         pickle.dump(scenes, f)
 
     logger.debug('Scenes: {}'.format(len(scenes)))
