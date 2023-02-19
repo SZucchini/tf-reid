@@ -53,6 +53,7 @@ def main():
 
         frame += 1
 
+    video.release()
     return 0
 
 

@@ -13,7 +13,7 @@ from scipy.optimize import linear_sum_assignment
 
 from ultralytics import YOLO
 from scene import Scene
-from features.build_features import get_hist
+from features.build_features import get_hist, get_hist_no_div, get_h_hist
 
 
 logger = getLogger("Log")
@@ -63,12 +63,12 @@ def get_shoe_bbox(file):
 
 def get_query(file):
     img = cv2.imread(file)
-    img_hist = get_hist(img, bins=9, div=2)
+    img_hist = get_h_hist(img, bins=49)
 
     shoe_bbox, score = get_shoe_bbox(file)
     if shoe_bbox is not None:
         shoe_img = img[shoe_bbox[1]:shoe_bbox[3], shoe_bbox[0]:shoe_bbox[2]]
-        shoe_hist = get_hist(shoe_img, bins=9, div=2)
+        shoe_hist = get_h_hist(shoe_img, bins=49)
         shoe_score = score
     else:
         shoe_img = np.zeros_like(img)
@@ -122,8 +122,10 @@ def match(query, pred):
     for i in range(len(query)):
         if i not in q_idx:
             # queryの位置が左よりではない場合は除外すべき
-            if query[i]['xpos'] > 500:
-                continue
+            # この追加部分が悪さしているかも
+            # if query[i]['xpos'] > 1000:
+            #     pass
+            # else:
             new_query.append(query[i])
 
     return q_idx, p_idx, new_query
@@ -187,7 +189,7 @@ def main():
             last_frame = frame
             frame_files = [files[i]]
 
-    with open('../../models/scenes_updated2.pickle', mode='wb') as f:
+    with open('../../models/scenes_hhist.pickle', mode='wb') as f:
         pickle.dump(scenes, f)
 
     logger.debug('Scenes: {}'.format(len(scenes)))

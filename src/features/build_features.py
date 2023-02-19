@@ -63,3 +63,23 @@ def get_hist(cv_img, bins=9, div=2):
     bgr_hist = np.array(bgr_hist)
     bgr_hist = bgr_hist.reshape(-1)
     return bgr_hist
+
+
+def get_hist_no_div(cv_img, bins=9):
+    bgr_hist = []
+    cv_img = cv2.resize(cv_img, (100, 200))
+    for i in range(3):
+        hist = cv2.calcHist([cv_img], [i], None, [bins], [0, 256])[1:]
+        hist = cv2.normalize(hist, hist, 0, 1, cv2.NORM_MINMAX)
+        bgr_hist.append(hist.reshape(bins-1,))
+
+    bgr_hist = np.array(bgr_hist)
+    return bgr_hist.reshape(-1)
+
+
+def get_h_hist(cv_img, bins=49):
+    cv_img = cv2.resize(cv_img, (100, 200))
+    hsv_img = cv2.cvtColor(cv_img, cv2.COLOR_BGR2HSV)
+    h_hist = cv2.calcHist([hsv_img], [0], None, [bins], [0, 180])[1:]
+    h_hist = cv2.normalize(h_hist, h_hist, 0, 1, cv2.NORM_MINMAX)
+    return h_hist.reshape(-1)
