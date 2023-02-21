@@ -13,6 +13,8 @@ notebooks/*.ipynb
 models/*.pth
 models/*.pickle
 src/models/*.ipynb
+ByteTrack/
+api_token.txt
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

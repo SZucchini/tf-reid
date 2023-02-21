@@ -2,6 +2,7 @@ import os
 import glob
 import random
 
+import neptune.new as neptune
 from PIL import Image
 import numpy as np
 import torch
@@ -11,16 +12,33 @@ from torch.optim.lr_scheduler import StepLR
 from torch.utils.data import DataLoader, Dataset
 from torchvision import transforms
 import timm
-# import torchvision.models as models
 from sklearn.model_selection import train_test_split
 from tqdm.notebook import tqdm
 from torcheval.metrics.functional import binary_accuracy, binary_f1_score
 
+with open("../../api_token.txt", "r") as f:
+    api_token = f.readline().rstrip("\n")
+print(api_token)
+
+run = neptune.init_run(
+    project="szucchini/vit-tuning",
+    api_token=api_token,
+)
+
 batch_size = 64
-epochs = 20
+epochs = 200
 lr = 3e-5
 gamma = 0.7
 seed = 42
+
+params = {
+    "lr": lr,
+    "bs": batch_size,
+    "input_sz": 224 * 224 * 3,
+    "n_classes": 2,
+    "epochs": epochs,
+}
+run["parameters"] = params
 
 
 def seed_everything(seed):
@@ -99,28 +117,6 @@ print(len(train_data), len(train_loader))
 print(len(valid_data), len(valid_loader))
 print(len(test_data), len(test_loader))
 
-
-# class ViTNet(nn.Module):
-#     def __init__(self, pretrained_vit_model, class_num):
-#         super(ViTNet, self).__init__()
-#         self.vit = pretrained_vit_model
-#         self.fc = nn.Linear(1000, class_num)
-
-#     def forward(self, input_ids):
-#         states = self.vit(input_ids)
-#         states = self.fc(states)
-#         return states
-
-
-# model = models.vit_b_16(pretrained=True)
-# for param in model.parameters():
-#     param.requires_grad = False
-# model.heads[0] = nn.Linear(768, 2)
-# model = ViTNet(model, 2)
-# for param in model.parameters():
-#     param.requires_grad = False
-# for param in model.fc.parameters():
-#     param.requires_grad = True
 model = timm.create_model('vit_small_patch16_224', pretrained=True, num_classes=2)
 model.to(device)
 
@@ -149,12 +145,15 @@ for epoch in range(epochs):
         loss.backward()
         optimizer.step()
 
-        # acc = (output.argmax(dim=1) == label).float().mean()
         acc = binary_accuracy(output.argmax(dim=1), label)
         f1 = binary_f1_score(output.argmax(dim=1), label)
         epoch_acc += acc / len(train_loader)
         epoch_f1 += f1 / len(train_loader)
         epoch_loss += loss / len(train_loader)
+
+        run["train/batch/loss"].append(loss)
+        run["train/batch/acc"].append(acc)
+        run["train/batch/f1"].append(f1)
 
     with torch.no_grad():
         epoch_val_loss = 0
@@ -167,12 +166,15 @@ for epoch in range(epochs):
             val_output = model(data)
             val_loss = criterion(val_output, label)
 
-            # acc = (val_output.argmax(dim=1) == label).float().mean()
             acc = binary_accuracy(val_output.argmax(dim=1), label)
             f1 = binary_f1_score(val_output.argmax(dim=1), label)
             epoch_val_acc += acc / len(valid_loader)
             epoch_val_f1 += f1 / len(valid_loader)
             epoch_val_loss += val_loss / len(valid_loader)
+
+            run["valid/batch/loss"].append(val_loss)
+            run["valid/batch/acc"].append(acc)
+            run["valid/batch/f1"].append(f1)
 
     print(f"Epoch: {epoch+1}")
     print(f"train loss: {epoch_loss:.4f} train acc: {epoch_acc:.4f} train f1: {epoch_f1:.4f}")
@@ -183,33 +185,34 @@ for epoch in range(epochs):
     train_loss_list.append(epoch_loss)
     val_loss_list.append(epoch_val_loss)
 
-# test_list.sort()
-# test_labels = [path.split('/')[-1].split('_')[0] for path in test_list]
-# test_labels = [1 if label == "runner" else 0 for label in test_labels]
-# test_labels = torch.tensor(test_labels).to(device)
-# test_data = [test_transforms(Image.open(file).convert("RGB")) for file in test_list]
-# test_data = torch.stack(test_data).to(device)
-
 model.eval()
-acc_ave = 0
-f1_ave = 0
+tot_acc = 0
+tot_f1 = 0
 with torch.no_grad():
     for data, label in test_loader:
         data = data.to(device)
         label = label.to(device)
 
         output = model(data)
-
         acc = binary_accuracy(output.argmax(dim=1), label)
         f1 = binary_f1_score(output.argmax(dim=1), label)
         print('Accuracy:', acc, 'F1-score:', f1)
 
-        acc_ave += acc
-        f1_ave += f1
+        tot_acc += acc
+        tot_f1 += f1
 
-print('Test accuracy: ', acc_ave / len(test_loader))
-print('Test f1 score: ', f1_ave / len(test_loader))
+ave_acc = tot_acc / len(test_loader)
+ave_f1 = tot_f1 / len(test_loader)
+
+print('Test accuracy: ', ave_acc)
+print('Test f1 score: ', ave_f1)
+
+run["test/acc"].append(ave_acc)
+run["test/f1"].append(ave_f1)
 
 model.to('cpu')
-torch.save(model, '../../models/vit_server_timm_cpu.pth')
-torch.save(model.state_dict(), '../../models/vit_server_timm_cpu_dict.pth')
+torch.save(model, '../../models/vit_new_timm_epoch200.pth')
+torch.save(model.state_dict(), '../../models/vit_new_timm_epoch200_dict.pth')
+run['model'].upload('../../models/vit_new_timm_epoch200_dict.pth')
+
+run.stop()

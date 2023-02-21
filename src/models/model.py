@@ -189,7 +189,7 @@ def main():
             last_frame = frame
             frame_files = [files[i]]
 
-    with open('../../models/scenes_hhist.pickle', mode='wb') as f:
+    with open('../../models/scenes_new_hhist.pickle', mode='wb') as f:
         pickle.dump(scenes, f)
 
     logger.debug('Scenes: {}'.format(len(scenes)))
@@ -197,7 +197,7 @@ def main():
 
 
 if __name__ == '__main__':
-    vit = torch.load('../../models/vit_runner_cpu.pth')
+    vit = torch.load('../../models/vit_new_timm_epoch200.pth')
     img_transforms = transforms.Compose(
         [
             transforms.Resize(256),
@@ -209,5 +209,5 @@ if __name__ == '__main__':
     vit.eval()
     vit.to(device)
 
-    yolo = YOLO("../../yolo/weights/best400.pt")
+    yolo = YOLO("../../yolo/weights/best500.pt")
     main()

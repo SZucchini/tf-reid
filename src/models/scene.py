@@ -32,7 +32,7 @@ class Scene:
         self.flag.append(1)
 
     def update(self, q, idx):
-        if q['xpos'] < 800:  # この閾値で、保存する画像特徴量の位置を定める
+        if q['xpos'] > 2500 and q['xpos'] < 3500:  # この閾値で、保存する画像特徴量の位置を定める
             self.img_hist[idx] = q['img_hist']
             self.img_file[idx] = q['file']
         if self.shoe_score[idx] < q['shoe_score']:
